@@ -32,15 +32,19 @@ type Coordinator struct {
 }
 
 func New(conf config.CoordinatorConfig, log *logger.Logger) (*Coordinator, error) {
-	dbPath := conf.Coordinator.Auth.DbPath
-	if dbPath == "" {
-		dbPath = "./data/belko.db"
+	dbTarget, dbName := conf.Coordinator.Auth.DbUrl, "postgres"
+	if dbTarget == "" {
+		if dbTarget = conf.Coordinator.Auth.DbPath; dbTarget == "" {
+			dbTarget = "./data/belko.db"
+		}
+		dbName = "sqlite " + dbTarget
 	}
-	st, err := store.Open(dbPath)
+	// the URL carries the password, so only the kind of database is logged
+	st, err := store.Open(dbTarget)
 	if err != nil {
-		return nil, fmt.Errorf("database init fail (%s): %w", dbPath, err)
+		return nil, fmt.Errorf("database init fail (%s): %w", dbName, err)
 	}
-	log.Info().Msgf("database: %s", dbPath)
+	log.Info().Msgf("database: %s", dbName)
 
 	authSvc := auth.NewService(st, conf.Coordinator.Auth, log)
 	if err := authSvc.EnsureAdmin(context.Background()); err != nil {

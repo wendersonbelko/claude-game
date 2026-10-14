@@ -42,8 +42,11 @@ library:
 coordinator:
     # accounts and access control
     auth:
-        # SQLite database file
+        # SQLite database file (used only when dbUrl is empty)
         dbPath: ./data/belko.db
+        # PostgreSQL connection URL, e.g. postgres://user:pass@host:5432/belko?sslmode=disable
+        # prefer the CLOUD_GAME_COORDINATOR_AUTH_DBURL env variable (it holds a password)
+        dbUrl:
         # the primary administrator (cannot be demoted or blocked)
         adminEmail: wenderson@belko.com.br
         # initial admin password, used only when the admin account is created;

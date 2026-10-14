@@ -1,5 +1,5 @@
 // Package store keeps the persistent coordinator state (accounts, sessions,
-// preferences and the audit trail) in an embedded SQLite database.
+// preferences and the audit trail) in SQLite (embedded) or PostgreSQL.
 package store
 
 import (
@@ -75,12 +75,21 @@ type AuditEntry struct {
 }
 
 type Store struct {
-	db *sql.DB
+	db *conn
 }
 
-// Open opens (and creates if needed) the database at path and applies migrations.
-// Use ":memory:" for an ephemeral database (tests).
-func Open(path string) (*Store, error) {
+// Open opens the database and applies migrations. target is either a PostgreSQL URL
+// (postgres://user:pass@host:5432/db) or the path of an SQLite file, which is created if
+// needed. Use ":memory:" for an ephemeral SQLite database (tests).
+func Open(target string) (*Store, error) {
+	if IsPostgresURL(target) {
+		db, err := openPostgres(target)
+		if err != nil {
+			return nil, err
+		}
+		return finishOpen(&conn{DB: db, pg: true})
+	}
+	path := target
 	dsn := path
 	if path != ":memory:" {
 		if dir := filepath.Dir(path); dir != "" {
@@ -100,9 +109,13 @@ func Open(path string) (*Store, error) {
 		// every new connection of an in-memory database is a new empty database
 		db.SetMaxOpenConns(1)
 	}
-	s := &Store{db: db}
+	return finishOpen(&conn{DB: db})
+}
+
+func finishOpen(c *conn) (*Store, error) {
+	s := &Store{db: c}
 	if err := s.migrate(context.Background()); err != nil {
-		_ = db.Close()
+		_ = c.Close()
 		return nil, fmt.Errorf("migrate: %w", err)
 	}
 	return s, nil
@@ -253,7 +266,11 @@ func (s *Store) migrate(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx, migrations[i]); err != nil {
+		ddl := migrations[i]
+		if s.db.pg {
+			ddl = pgSchema(ddl)
+		}
+		if _, err := tx.ExecContext(ctx, ddl); err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("migration %d: %w", i+1, err)
 		}
@@ -263,6 +280,13 @@ func (s *Store) migrate(ctx context.Context) error {
 		}
 		if err := tx.Commit(); err != nil {
 			return err
+		}
+	}
+	if s.db.pg {
+		for _, q := range pgExtra {
+			if _, err := s.db.ExecContext(ctx, q); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -291,7 +315,8 @@ func fromNullInt(v sql.NullInt64) *int64 {
 }
 
 func isUniqueErr(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
+	return err != nil && (strings.Contains(err.Error(), "UNIQUE constraint failed") ||
+		strings.Contains(err.Error(), "duplicate key value"))
 }
 
 // Users
@@ -325,7 +350,7 @@ func (s *Store) CreateUser(ctx context.Context, u *User) error {
 	if u.ApprovedAt != nil {
 		approvedAt = unix(*u.ApprovedAt)
 	}
-	res, err := s.db.ExecContext(ctx,
+	id, err := insertID(ctx, s.db, s.db.pg,
 		`INSERT INTO users(email, name, password_hash, role, status, created_at, updated_at, approved_at, approved_by)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		u.Email, u.Name, u.PasswordHash, u.Role, u.Status, unix(now), unix(now), approvedAt, u.ApprovedBy)
@@ -335,8 +360,8 @@ func (s *Store) CreateUser(ctx context.Context, u *User) error {
 	if err != nil {
 		return err
 	}
-	u.Id, err = res.LastInsertId()
-	return err
+	u.Id = id
+	return nil
 }
 
 func (s *Store) UserById(ctx context.Context, id int64) (*User, error) {
@@ -344,7 +369,7 @@ func (s *Store) UserById(ctx context.Context, id int64) (*User, error) {
 }
 
 func (s *Store) UserByEmail(ctx context.Context, email string) (*User, error) {
-	return scanUser(s.db.QueryRowContext(ctx, `SELECT `+userCols+` FROM users WHERE email = ?`, email))
+	return scanUser(s.db.QueryRowContext(ctx, `SELECT `+userCols+` FROM users WHERE lower(email) = lower(?)`, email))
 }
 
 // ListUsers returns users filtered by status (empty = all), newest first.
@@ -564,7 +589,8 @@ func (s *Store) SetCover(ctx context.Context, c Cover) error {
 // CoverStats returns how many covers are stored and how many lookups found nothing.
 func (s *Store) CoverStats(ctx context.Context) (found, missing int, err error) {
 	err = s.db.QueryRowContext(ctx,
-		`SELECT COALESCE(SUM(status = 'found'), 0), COALESCE(SUM(status = 'missing'), 0) FROM covers`).Scan(&found, &missing)
+		`SELECT COALESCE(SUM(CASE WHEN status = 'found' THEN 1 ELSE 0 END), 0),
+		        COALESCE(SUM(CASE WHEN status = 'missing' THEN 1 ELSE 0 END), 0) FROM covers`).Scan(&found, &missing)
 	return
 }
 
@@ -651,7 +677,8 @@ func (s *Store) AllGameMeta(ctx context.Context) ([]GameMeta, error) {
 
 func (s *Store) GameMetaStats(ctx context.Context) (found, missing int, err error) {
 	err = s.db.QueryRowContext(ctx,
-		`SELECT COALESCE(SUM(status = 'found'), 0), COALESCE(SUM(status = 'missing'), 0) FROM game_meta`).Scan(&found, &missing)
+		`SELECT COALESCE(SUM(CASE WHEN status = 'found' THEN 1 ELSE 0 END), 0),
+		        COALESCE(SUM(CASE WHEN status = 'missing' THEN 1 ELSE 0 END), 0) FROM game_meta`).Scan(&found, &missing)
 	return
 }
 

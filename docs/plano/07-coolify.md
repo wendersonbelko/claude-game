@@ -44,6 +44,9 @@ Em **Environment Variables**:
 | `PUBLIC_DOMAIN` | `arcade.seudominio.com.br` (sem `https://`) | sim |
 | `BELKO_ADMIN_PASSWORD` | senha forte | recomendada (usada só na 1ª subida; vazia = gerada no log) |
 
+A senha do PostgreSQL **não precisa ser cadastrada**: o Coolify a gera sozinho (`SERVICE_PASSWORD_POSTGRES`) e a entrega
+ao serviço `postgres` e ao app. O banco sobe junto com o app, no mesmo deploy.
+
 ## 5. Deploy
 
 Clique em **Deploy**. Acompanhe em *Deployments*. Ao terminar, abra o domínio e entre com
@@ -68,7 +71,8 @@ As ROMs **não** vão no Git. Elas ficam em volumes Docker que sobrevivem aos de
 - `belko-games` → `/usr/local/share/cloud-game/assets/games`
 - `belko-cores` → `.../assets/cores` (os cores Libretro são baixados sozinhos)
 - `belko-bios` → `.../libretro/system` (BIOS do PS1 etc.)
-- `belko-data` → `/data` (contas SQLite, capas, catálogo, replays) — **faça backup**
+- `belko-pg` → dados do PostgreSQL (contas, torneios, catálogo) — **faça backup** (`pg_dump`)
+- `belko-data` → `/data` (capas, catálogo baixado, replays)
 
 Para enviar ROMs: pelo painel (**Admin › Jogos**, unitário ou em lote) ou, se preferir, pelo terminal do Coolify no contêiner
 `cloud-game`, ou do seu PC:

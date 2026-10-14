@@ -32,8 +32,11 @@ type Coordinator struct {
 
 // Auth configures accounts, sessions and access control.
 type Auth struct {
-	// DbPath is the SQLite database file path.
+	// DbPath is the SQLite database file path (used when DbUrl is empty).
 	DbPath string
+	// DbUrl is a PostgreSQL connection URL (postgres://user:pass@host:5432/db).
+	// When set, it takes precedence over DbPath.
+	DbUrl string
 	// AdminEmail is the primary (protected) administrator account.
 	AdminEmail string
 	// AdminPassword is the initial password of the primary admin (first start only).

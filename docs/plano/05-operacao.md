@@ -23,7 +23,8 @@ para `assets/cores`.
 
 | Chave | Variável de ambiente | Padrão | Descrição |
 |---|---|---|---|
-| `coordinator.auth.dbPath` | `CLOUD_GAME_COORDINATOR_AUTH_DBPATH` | `./data/belko.db` | Arquivo SQLite |
+| `coordinator.auth.dbUrl` | `CLOUD_GAME_COORDINATOR_AUTH_DBURL` | vazio | URL do PostgreSQL (`postgres://usuario:senha@host:5432/belko?sslmode=disable`). Se definida, é usada no lugar do SQLite. A senha deve ter só letras e números (ou estar codificada na URL) |
+| `coordinator.auth.dbPath` | `CLOUD_GAME_COORDINATOR_AUTH_DBPATH` | `./data/belko.db` | Arquivo SQLite (usado só se `dbUrl` estiver vazia; testes e desenvolvimento sem Docker) |
 | `coordinator.auth.adminEmail` | `CLOUD_GAME_COORDINATOR_AUTH_ADMINEMAIL` | `wenderson@belko.com.br` | Administrador principal (protegido) |
 | `coordinator.auth.adminPassword` | `CLOUD_GAME_COORDINATOR_AUTH_ADMINPASSWORD` | vazio | Senha inicial do admin (só na criação) |
 | `coordinator.auth.moderators` | `CLOUD_GAME_COORDINATOR_AUTH_MODERATORS` | `false` | Ativa o papel Moderador (aprova cadastros) |
@@ -79,13 +80,21 @@ Passo a passo com Coolify e auto deploy: [07-coolify.md](07-coolify.md).
 
 ## Backup
 
-Todo o estado de contas fica num único arquivo SQLite (volume `belko-data`, arquivo `belko.db`), e as
-capas baixadas ficam em `/data/covers` no mesmo volume.
+O estado de contas, torneios e catálogo fica no **PostgreSQL** (serviço `postgres`, volume `belko-pg`).
+As capas baixadas, o catálogo e os replays ficam em `/data` (volume `belko-data`).
 
 ```bash
-# cópia consistente com o serviço rodando
-docker compose exec cloud-game sh -c 'cp /data/belko.db /data/belko-$(date +%F).db'
+# dump consistente com o serviço rodando
+docker compose exec postgres pg_dump -U belko belko > belko-$(date +%F).sql
+
+# restaurar em um banco vazio
+docker compose exec -T postgres psql -U belko belko < belko-AAAA-MM-DD.sql
 ```
+
+Para usar um Postgres gerenciado na nuvem (Neon, Supabase, RDS...), remova o serviço `postgres` do compose
+e defina `CLOUD_GAME_COORDINATOR_AUTH_DBURL` com a URL do provedor (use `sslmode=require`).
+
+Sem `DBURL`, o coordenador volta a usar o arquivo SQLite `belko.db` do volume `belko-data`.
 
 Os saves dos jogos ficam em `~/.cr/save` dentro do contêiner do worker (ou no S3, se configurado).
 

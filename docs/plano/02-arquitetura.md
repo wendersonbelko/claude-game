@@ -21,9 +21,12 @@ Novos pacotes Go:
 | `pkg/coordinator/lobby.go` | Fila, reservas de worker, estado do lobby e das salas, chat |
 | `pkg/covers` | Capas dos jogos: busca no libretro-thumbnails e cache permanente em disco + SQLite |
 
-## 2. Banco de dados (SQLite)
+## 2. Banco de dados (PostgreSQL ou SQLite)
 
-Arquivo único (padrão `./data/belko.db`, configurável). WAL ativado, `foreign_keys=ON`.
+Em produção usa **PostgreSQL** (`CLOUD_GAME_COORDINATOR_AUTH_DBURL`). Sem essa variável, usa um arquivo SQLite
+(padrão `./data/belko.db`; WAL ativado, `foreign_keys=ON`), que é o que os testes usam. O esquema é o mesmo nos dois;
+as migrações escritas em SQLite são convertidas para PostgreSQL ao aplicar (`pkg/store/dialect.go`).
+O trecho abaixo mostra o esquema em notação SQLite.
 
 ```sql
 users(id INTEGER PK, email TEXT UNIQUE COLLATE NOCASE, name TEXT, password_hash TEXT,

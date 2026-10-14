@@ -30,7 +30,7 @@ suporte completo a controle, teclado, mouse e toque.
 |---|---|
 | Nome do produto | **Belko Arcade** |
 | Frontend | JavaScript puro (ES Modules, sem etapa de build), reorganizado em módulos de UI |
-| Banco de dados | **SQLite** embarcado (driver `modernc.org/sqlite`, Go puro, sem CGO) |
+| Banco de dados | **PostgreSQL** em produção (`pgx`); **SQLite** embarcado (`modernc.org/sqlite`, Go puro) para testes e desenvolvimento |
 | Senhas | **Argon2id** (`golang.org/x/crypto/argon2`) |
 | Sessão | Cookie `HttpOnly` + `SameSite=Lax` (+ `Secure` com HTTPS), token aleatório guardado como hash |
 | Cadastro | Aberto, porém toda conta nova nasce **pendente** até aprovação |

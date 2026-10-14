@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"strings"
 	"time"
 )
 
@@ -85,14 +84,14 @@ func scanTournament(r scanner) (*Tournament, error) {
 
 func (s *Store) CreateTournament(ctx context.Context, t *Tournament) error {
 	t.CreatedAt = time.Now().UTC().Truncate(time.Second)
-	res, err := s.db.ExecContext(ctx,
+	id, err := insertID(ctx, s.db, s.db.pg,
 		`INSERT INTO tournaments(name, game, system, rule, status, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		t.Name, t.Game, t.System, t.Rule, t.Status, t.CreatedBy, unix(t.CreatedAt))
 	if err != nil {
 		return err
 	}
-	t.Id, err = res.LastInsertId()
-	return err
+	t.Id = id
+	return nil
 }
 
 func (s *Store) Tournament(ctx context.Context, id int64) (*Tournament, error) {
@@ -132,7 +131,7 @@ func (s *Store) SetTournamentStatus(ctx context.Context, id int64, status string
 func (s *Store) AddTournamentPlayer(ctx context.Context, tid, uid int64) error {
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO tournament_players(tournament_id, user_id, joined_at) VALUES (?, ?, ?)`, tid, uid, unix(time.Now()))
-	if err != nil && strings.Contains(err.Error(), "constraint failed") {
+	if isConstraintErr(err) {
 		return ErrDuplicate
 	}
 	return err
@@ -192,17 +191,14 @@ func (s *Store) CreateBracket(ctx context.Context, tid int64, matches []*Match) 
 	}
 	defer func() { _ = tx.Rollback() }()
 	for _, m := range matches {
-		res, err := tx.ExecContext(ctx,
+		id, err := insertID(ctx, tx, s.db.pg,
 			`INSERT INTO matches(tournament_id, round, position, p1_id, p2_id, status, winner_id, source, ready_at, finished_at)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			tid, m.Round, m.Position, m.P1, m.P2, m.Status, m.WinnerId, m.Source, nullTime(m.ReadyAt), nullTime(m.FinishedAt))
 		if err != nil {
 			return err
 		}
-		if m.Id, err = res.LastInsertId(); err != nil {
-			return err
-		}
-		m.TournamentId = tid
+		m.Id, m.TournamentId = id, tid
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE tournaments SET status = 'running', started_at = ? WHERE id = ?`,
 		unix(time.Now()), tid); err != nil {
@@ -260,14 +256,14 @@ func (s *Store) UpdateMatch(ctx context.Context, m *Match) error {
 
 func (s *Store) CreateReplay(ctx context.Context, r *ReplayInfo) error {
 	r.CreatedAt = time.Now().UTC().Truncate(time.Second)
-	res, err := s.db.ExecContext(ctx,
+	id, err := insertID(ctx, s.db, s.db.pg,
 		`INSERT INTO replays(match_id, game, frames, size, file, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
 		r.MatchId, r.Game, r.Frames, r.Size, r.File, unix(r.CreatedAt))
 	if err != nil {
 		return err
 	}
-	r.Id, err = res.LastInsertId()
-	return err
+	r.Id = id
+	return nil
 }
 
 func (s *Store) Replay(ctx context.Context, id int64) (*ReplayInfo, error) {
