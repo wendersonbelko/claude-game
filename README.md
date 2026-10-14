@@ -53,7 +53,7 @@ Coloque as ROMs em `assets/games/<sistema>/`. Os cores Libretro são baixados au
 - [Documento de design v2 (original)](DESIGNv2.md)
 
 ## Ambiente de desenvolvimento
-
+ 
 * Instale o [Go](https://golang.org/doc/install)
 * Instale o GStreamer
 
