@@ -20,6 +20,7 @@ administrador.
   das partidas (Ultimate Mortal Kombat 3, Super Bomberman 2 e Super Mario Kart).
 - **Biblioteca com capas e catálogo:** capas do libretro-thumbnails e dados (gênero, ano, desenvolvedora,
   jogadores) baixados uma única vez e guardados localmente; troca de capa e upload de ROMs pelo painel.
+- **Envio de jogos em lote ou unitário** pelo painel (arrastar e soltar, com progresso).
 - **Painel de administração:** pendentes, usuários, salas e fila, servidores e auditoria.
 - **Controle, teclado, mouse e toque**, com suporte a gamepad.
 - **Pronto para produção:** Docker Compose para Coolify com deploy automático.

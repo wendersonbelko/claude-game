@@ -98,6 +98,7 @@ const (
 	LibNewGameList   PT = 205
 	PrevSessions     PT = 206
 	MatchResult      PT = 207
+	LibRescan        PT = 208
 )
 
 func (p PT) String() string {
@@ -160,6 +161,8 @@ func (p PT) String() string {
 		return "AppVideoChange"
 	case LibNewGameList:
 		return "LibNewGameList"
+	case LibRescan:
+		return "LibRescan"
 	case PrevSessions:
 		return "PrevSessions"
 	case MatchResult:

@@ -89,6 +89,7 @@ func (a *API) Routes(mux *httpx.Mux) {
 	mux.HandleFunc("GET /api/meta", a.authed(a.catalog))
 	a.tournamentRoutes(mux)
 	a.uploadRoutes(mux)
+	a.gameUploadRoutes(mux)
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, &auth.Error{Status: 404, Code: "not_found", Message: "Recurso não encontrado."})

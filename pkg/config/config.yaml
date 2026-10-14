@@ -58,6 +58,12 @@ coordinator:
         secureCookie: false
         # seconds a freed server stays reserved for the next user in the queue
         queueReserveSec: 30
+    # game uploads (admin panel): files are saved into the library folder
+    # (library.basePath), which the workers must share, and they are told to rescan it
+    games:
+        enabled: true
+        # size limit of a single file, in MB
+        maxUploadMB: 1024
     # game cover art: downloaded once from the free libretro-thumbnails
     # service (https://thumbnails.libretro.com) and stored on the server
     covers:

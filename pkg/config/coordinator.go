@@ -15,6 +15,7 @@ type Coordinator struct {
 	Analytics   Analytics
 	Auth        Auth
 	Covers      Covers
+	Games       Games
 	Meta        Meta
 	Tournaments Tournaments
 	Debug       bool
@@ -57,6 +58,13 @@ type Meta struct {
 	Url string
 	// RetryDays is how long a "not found" result is kept before trying again.
 	RetryDays int
+}
+
+// Games configures ROM uploads from the admin panel.
+type Games struct {
+	Enabled bool
+	// MaxUploadMB is the size limit of a single uploaded file.
+	MaxUploadMB int
 }
 
 // Covers configures the game cover art cache.

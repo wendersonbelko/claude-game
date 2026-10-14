@@ -70,7 +70,7 @@ As ROMs **não** vão no Git. Elas ficam em volumes Docker que sobrevivem aos de
 - `belko-bios` → `.../libretro/system` (BIOS do PS1 etc.)
 - `belko-data` → `/data` (contas SQLite, capas, catálogo, replays) — **faça backup**
 
-Para enviar ROMs: pelo painel admin (upload), ou pelo terminal do Coolify no contêiner
+Para enviar ROMs: pelo painel (**Admin › Jogos**, unitário ou em lote) ou, se preferir, pelo terminal do Coolify no contêiner
 `cloud-game`, ou do seu PC:
 
 ```bash

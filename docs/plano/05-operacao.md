@@ -39,6 +39,8 @@ para `assets/cores`.
 | `coordinator.meta.retryDays` | `CLOUD_GAME_COORDINATOR_META_RETRYDAYS` | `7` | Dias até procurar de novo um jogo sem dados |
 | `coordinator.covers.retryDays` | `CLOUD_GAME_COORDINATOR_COVERS_RETRYDAYS` | `7` | Dias até procurar de novo um jogo sem capa |
 
+| `coordinator.games.enabled` | `CLOUD_GAME_COORDINATOR_GAMES_ENABLED` | `true` | Envio de jogos pelo painel (Admin › Jogos) |
+| `coordinator.games.maxUploadMB` | `CLOUD_GAME_COORDINATOR_GAMES_MAXUPLOADMB` | `1024` | Limite por arquivo, em MB |
 | `coordinator.tournaments.enabled` | `CLOUD_GAME_COORDINATOR_TOURNAMENTS_ENABLED` | `true` | Módulo de torneios |
 | `coordinator.tournaments.maxConcurrent` | `CLOUD_GAME_COORDINATOR_TOURNAMENTS_MAXCONCURRENT` | `2` | Partidas de torneio ao mesmo tempo |
 | `coordinator.tournaments.joinTimeoutSec` | `CLOUD_GAME_COORDINATOR_TOURNAMENTS_JOINTIMEOUTSEC` | `180` | Prazo para entrar (depois: W.O.) |
@@ -106,3 +108,20 @@ Os saves dos jogos ficam em `~/.cr/save` dentro do contêiner do worker (ou no S
 # Go (via Docker, sem instalar nada)
 docker run --rm -v "$PWD":/src -w /src golang:1.27 go test ./pkg/auth ./pkg/store ./pkg/coordinator
 ```
+
+## Envio de jogos (unitário ou em lote)
+
+**Admin › Jogos** (somente administrador): arraste vários arquivos ou escolha arquivos/uma pasta. Cada
+arquivo é enviado um por vez, com barra de progresso, e ao final os servidores reescaneiam a biblioteca
+e buscam capa e dados dos jogos novos (recarregue a página para vê-los).
+
+- **Sistema automático:** pela extensão (`.nes`, `.smc`, `.gba`, `.z64`...). `.zip` (Arcade ou DOS) e
+  `.cue`/`.chd` (PlayStation ou DOS) servem para mais de um sistema: escolha o sistema na lista.
+- **Jogos de disco:** envie o `.cue` junto com os `.bin` (mesmo sistema, mesma leva). Arquivos de disco
+  (`.bin`, `.iso`, `.img`...) exigem sistema escolhido.
+- **Nomes:** o nome do arquivo vira o nome do jogo. Arquivo já existente é recusado, a menos que
+  **Substituir arquivos existentes** esteja marcado.
+- Os arquivos vão para `library.basePath/<pasta do sistema>/`. **O coordenador e os workers precisam
+  enxergar essa mesma pasta** (no Docker Compose deste projeto, um único contêiner, já é assim). Com workers
+  em outras máquinas, copie os arquivos para cada um.
+- Cada envio é registrado na **Auditoria**.

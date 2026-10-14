@@ -3,6 +3,7 @@ import {icon} from '../ui/icons.js?v=4';
 import {ago, avatar, dateTime, esc, on} from '../ui/dom.js?v=4';
 import {confirmDialog, modal} from '../ui/modal.js?v=4';
 import {toast} from '../ui/toast.js?v=4';
+import {gameUpload} from './gameupload.js?v=4';
 import {auditActions, gameTitle, roles, statuses} from '../i18n.js?v=4';
 
 /**
@@ -54,6 +55,7 @@ const refresh = async (what = tab) => {
         if (what === 'pending' || what === 'users') await loadUsers();
         if (what === 'rooms' || what === 'servers') await loadOverview();
         if (what === 'audit') await loadAudit();
+        if (what === 'games') await gameUpload.load();
     } catch (e) {
         toast.error(e.message);
     }
@@ -151,6 +153,7 @@ const tabs = () => {
         ['users', 'Usuários', 'users', 0, true],
         ['rooms', 'Salas e fila', 'tv', 0, can('rooms.moderate')],
         ['servers', 'Servidores', 'server', 0, can('rooms.moderate')],
+        ['games', 'Jogos', 'upload', 0, can('users.manage')],
         ['audit', 'Auditoria', 'list', 0, can('users.manage')],
     ];
     return `<div class="tabs" role="tablist">${list.filter((t) => t[4]).map(([k, t, i, n]) =>
@@ -280,11 +283,12 @@ const renderAudit = () => audit.length ? `<div class="table-wrap"><table class="
 
 const render = () => {
     if (!root) return;
-    const body = {pending: renderPending, users: renderUsers, rooms: renderRooms, servers: renderServers, audit: renderAudit}[tab];
+    const body = {pending: renderPending, users: renderUsers, rooms: renderRooms, servers: renderServers, games: () => '<div data-games></div>', audit: renderAudit}[tab];
     const searchFocused = document.activeElement?.matches?.('[data-usearch]');
     const caret = searchFocused ? document.activeElement.selectionStart : 0;
     root.querySelector('[data-tabs]').innerHTML = tabs();
     root.querySelector('[data-body]').innerHTML = body();
+    if (tab === 'games') gameUpload.update();
     if (searchFocused) {
         const s = root.querySelector('[data-usearch]');
         s?.focus();
@@ -334,6 +338,7 @@ export const admin = {
             search = i.value;
             render();
         });
+        gameUpload.mount(root);
         startAutoRefresh();
     },
     configure({user, moderators}) {

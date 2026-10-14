@@ -84,6 +84,12 @@ func (c *coordinator) HandleRequests(w *Worker) chan struct{} {
 			err = api.Do(x, func(d api.ChangePlayerRequest) { out = c.HandleChangePlayer(d, w) })
 		case api.RecordGame:
 			err = api.Do(x, func(d api.RecordGameRequest) { out = c.HandleRecordGame(d, w) })
+		case api.LibRescan:
+			// new files were uploaded: scan the library again and report the new list
+			go func() {
+				w.lib.Scan()
+				c.SendLibrary(w)
+			}()
 		case api.WebrtcSignal:
 			err = api.Do(x, func(d api.WebrtcSignalRequest) { c.HandleWebrtcSignal(d, w) })
 		case api.TerminateSession:

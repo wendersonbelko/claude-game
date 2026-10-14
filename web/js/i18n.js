@@ -44,6 +44,8 @@ export const auditActions = {
     'covers.retry': 'Nova busca de capas',
     'meta.retry': 'Atualização do catálogo',
     'cover.set': 'Capa trocada',
+    'game.upload': 'Jogo enviado',
+    'game.rescan': 'Biblioteca atualizada',
     'cover.reset': 'Capa automática restaurada',
     'tournament.created': 'Torneio criado',
     'tournament.start': 'Torneio iniciado',
