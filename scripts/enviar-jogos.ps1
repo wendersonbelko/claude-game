@@ -14,7 +14,9 @@ Remove-Item $jar, $body -ErrorAction SilentlyContinue
 
 $sec = Read-Host 'Senha do admin' -AsSecureString
 $pass = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
-@{ email = $Email; password = $pass } | ConvertTo-Json -Compress | Set-Content $body -Encoding utf8
+$json = @{ email = $Email; password = $pass } | ConvertTo-Json -Compress
+# sem BOM: o servidor recusa JSON com BOM
+[IO.File]::WriteAllText($body, $json, (New-Object Text.UTF8Encoding($false)))
 $code = curl.exe -s -o NUL -w '%{http_code}' -c $jar -X POST -H 'Content-Type: application/json' --data-binary "@$body" "$Url/api/auth/login"
 Remove-Item $body
 if ($code -ne '200') { throw "Login falhou (HTTP $code)." }
