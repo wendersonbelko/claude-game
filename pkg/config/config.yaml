@@ -332,7 +332,7 @@ emulator:
                         # mgba_frameskip: auto
                 pcsx:
                     lib: pcsx_rearmed_libretro
-                    roms: ["cue", "chd"]
+                    roms: ["cue", "chd", "iso", "img", "pbp", "m3u"]
                     # example of folder override
                     folder: psx
                     # see: https://github.com/libretro/pcsx_rearmed/blob/master/frontend/libretro_core_options.h
@@ -395,7 +395,7 @@ emulator:
                         "mupen64plus-astick-sensitivity": 100
                 dos:
                     lib: dosbox_pure_libretro
-                    roms: ["zip", "cue"]
+                    roms: ["zip"]
                     folder: dos
                     kbMouseSupport: true
                     nonBlockingSave: true

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/giongto35/cloud-game/v3/pkg/api"
@@ -129,9 +130,6 @@ func (a *API) pickSystem(ext, requested string) (gameSystem, error) {
 		}
 		return gameSystem{}, errors.New("Sistema desconhecido.")
 	}
-	if companionExts[ext] {
-		return gameSystem{}, errors.New("Arquivos de disco (.bin, .iso...) precisam de um sistema escolhido.")
-	}
 	var found []gameSystem
 	for _, s := range systems {
 		for _, e := range s.Exts {
@@ -140,6 +138,15 @@ func (a *API) pickSystem(ext, requested string) (gameSystem, error) {
 				break
 			}
 		}
+	}
+	if len(found) == 0 && companionExts[ext] {
+		// the data tracks of a disc image (.bin, .sub...) belong to the CD-based system
+		for _, s := range systems {
+			if s.Id == "pcsx" {
+				return s, nil
+			}
+		}
+		return gameSystem{}, errors.New("Arquivos de disco (.bin, .sub...) precisam de um sistema escolhido.")
 	}
 	switch len(found) {
 	case 0:
@@ -239,6 +246,7 @@ func (a *API) putGame(w http.ResponseWriter, r *http.Request, acc *auth.Account,
 	}
 
 	a.auth.Audit(r.Context(), acc, "game.upload", sys.Id+"/"+name)
+	a.hub.scheduleRescan()
 	writeJson(w, http.StatusOK, map[string]any{"ok": true, "name": name, "system": sys.Id, "size": n})
 }
 
@@ -250,6 +258,22 @@ func (a *API) rescanGames(w http.ResponseWriter, r *http.Request, acc *auth.Acco
 	count := a.hub.rescanLibraries()
 	a.auth.Audit(r.Context(), acc, "game.rescan", "")
 	writeJson(w, http.StatusOK, map[string]any{"ok": true, "workers": count})
+}
+
+var (
+	rescanMu    sync.Mutex
+	rescanTimer *time.Timer
+)
+
+// scheduleRescan scans the libraries a few seconds after the last upload, so new games show up
+// even when the admin closes the page before the batch ends.
+func (h *Hub) scheduleRescan() {
+	rescanMu.Lock()
+	defer rescanMu.Unlock()
+	if rescanTimer != nil {
+		rescanTimer.Stop()
+	}
+	rescanTimer = time.AfterFunc(5*time.Second, func() { h.rescanLibraries() })
 }
 
 // rescanLibraries asks every connected worker to scan its game library again.
