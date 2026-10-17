@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -23,6 +24,9 @@ import (
 var companionExts = map[string]bool{"bin": true, "img": true, "iso": true, "sub": true, "ccd": true, "mds": true, "mdf": true}
 
 const maxGameNameLen = 200
+
+// maxChunkBytes limits one piece of a chunked upload (big files go in pieces to pass the proxy timeouts).
+const maxChunkBytes = 128 << 20
 
 type gameSystem struct {
 	Id     string   `json:"id"`
@@ -209,6 +213,10 @@ func (a *API) putGame(w http.ResponseWriter, r *http.Request, acc *auth.Account,
 		writeErr(w, &auth.Error{Status: 500, Code: "storage", Message: "Não foi possível gravar na pasta de jogos."})
 		return
 	}
+	if q.Get("offset") != "" {
+		a.putGameChunk(w, r, acc, sys, name, dir, dst, limit)
+		return
+	}
 	// a hidden temporary file: the library scan ignores it, and a failed upload leaves nothing behind
 	tmp, err := os.CreateTemp(dir, ".upload-*")
 	if err != nil {
@@ -248,6 +256,72 @@ func (a *API) putGame(w http.ResponseWriter, r *http.Request, acc *auth.Account,
 	a.auth.Audit(r.Context(), acc, "game.upload", sys.Id+"/"+name)
 	a.hub.scheduleRescan()
 	writeJson(w, http.StatusOK, map[string]any{"ok": true, "name": name, "system": sys.Id, "size": n})
+}
+
+// putGameChunk appends one piece of a big file (query: offset, total) to a hidden .part file
+// and moves it into the library after the last piece. Repeating a piece is safe.
+func (a *API) putGameChunk(w http.ResponseWriter, r *http.Request, acc *auth.Account, sys gameSystem, name, dir, dst string, limit int64) {
+	q := r.URL.Query()
+	offset, err1 := strconv.ParseInt(q.Get("offset"), 10, 64)
+	total, err2 := strconv.ParseInt(q.Get("total"), 10, 64)
+	if err1 != nil || err2 != nil || offset < 0 || total <= 0 || offset >= total {
+		writeErr(w, &auth.Error{Status: 400, Code: "bad_chunk", Message: "Pedaço de arquivo inválido."})
+		return
+	}
+	if total > limit {
+		writeErr(w, &auth.Error{Status: 413, Code: "too_large", Message: fmt.Sprintf("Arquivo grande demais (máximo %d MB).", limit>>20)})
+		return
+	}
+	part := filepath.Join(dir, ".part-"+name+".part")
+	if offset > 0 {
+		if st, err := os.Stat(part); err != nil || st.Size() < offset {
+			writeErr(w, &auth.Error{Status: 409, Code: "offset", Message: "Envio fora de ordem. Envie o arquivo de novo."})
+			return
+		}
+	}
+	f, err := os.OpenFile(part, os.O_WRONLY|os.O_CREATE, 0o644)
+	if err == nil {
+		// a retried piece overwrites what a broken attempt left behind
+		if err = f.Truncate(offset); err == nil {
+			_, err = f.Seek(offset, io.SeekStart)
+		}
+	}
+	if err != nil {
+		if f != nil {
+			_ = f.Close()
+		}
+		a.log.Error().Err(err).Str("file", name).Msg("game upload: can't write the piece")
+		writeErr(w, &auth.Error{Status: 500, Code: "storage", Message: "Não foi possível gravar na pasta de jogos."})
+		return
+	}
+	n, err := io.Copy(f, http.MaxBytesReader(w, r.Body, maxChunkBytes))
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		a.log.Error().Err(err).Str("file", name).Msg("game upload piece failed")
+		writeErr(w, &auth.Error{Status: 500, Code: "storage", Message: "O envio foi interrompido. Tente novamente."})
+		return
+	}
+	if n == 0 || offset+n > total {
+		_ = os.Remove(part)
+		writeErr(w, &auth.Error{Status: 400, Code: "bad_chunk", Message: "Pedaço de arquivo inválido."})
+		return
+	}
+	received := offset + n
+	if received < total {
+		writeJson(w, http.StatusOK, map[string]any{"ok": true, "done": false, "received": received})
+		return
+	}
+	if err := os.Rename(part, dst); err != nil {
+		_ = os.Remove(part)
+		a.log.Error().Err(err).Str("file", name).Msg("game upload failed")
+		writeErr(w, &auth.Error{Status: 500, Code: "storage", Message: "O envio foi interrompido. Tente novamente."})
+		return
+	}
+	a.auth.Audit(r.Context(), acc, "game.upload", sys.Id+"/"+name)
+	a.hub.scheduleRescan()
+	writeJson(w, http.StatusOK, map[string]any{"ok": true, "done": true, "name": name, "system": sys.Id, "size": total})
 }
 
 // rescanGames tells all workers to scan the library again (after a batch of uploads).

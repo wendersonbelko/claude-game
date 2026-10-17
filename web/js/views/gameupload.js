@@ -20,6 +20,7 @@ let system = ''; // '' = detect by extension
 let overwrite = false;
 let finished = false;
 let seq = 0;
+const chunkSize = 64 << 20; // files above this size are sent in pieces
 let tried = false;
 
 const label = (id) => systemNames[id] || id.toUpperCase();
@@ -125,46 +126,65 @@ export const gameUpload = {
         gameUpload.update();
     },
 
-    sendOne(it) {
+    /** Sends one body (the whole file or one piece of it) and reports {status, data}. */
+    sendPiece(it, body, extra, base) {
         return new Promise((resolve) => {
             const q = new URLSearchParams({name: it.name});
             if (it.system) q.set('system', it.system);
             if (overwrite) q.set('overwrite', '1');
+            for (const [k, v] of Object.entries(extra)) q.set(k, v);
             const xhr = new XMLHttpRequest();
             xhr.open('PUT', `/api/admin/games?${q}`);
             xhr.withCredentials = true;
             xhr.setRequestHeader('Content-Type', 'application/octet-stream');
             xhr.upload.onprogress = (ev) => {
                 if (!ev.lengthComputable) return;
-                const pct = Math.min(99, Math.floor((ev.loaded / ev.total) * 100));
+                const pct = Math.min(99, Math.floor(((base + ev.loaded) / it.file.size) * 100));
                 if (pct !== it.pct) {
                     it.pct = pct;
                     gameUpload.updateRow(it);
                 }
             };
-            xhr.onerror = () => {
-                it.status = 'error';
-                it.msg = 'Sem conexão com o servidor.';
-                resolve();
-            };
+            xhr.onerror = () => resolve({status: 0, data: null});
             xhr.onload = () => {
                 let data = null;
                 try {
                     data = JSON.parse(xhr.responseText);
                 } catch { /* empty body */ }
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    it.status = 'done';
-                    it.pct = 100;
-                    it.msg = '';
-                } else {
-                    const err = data?.error || {};
-                    it.status = err.code === 'exists' ? 'exists' : 'error';
-                    it.msg = err.code === 'exists' ? 'Marque "Substituir arquivos existentes" para enviar de novo.' : (err.message || 'Falha no envio.');
-                }
-                resolve();
+                resolve({status: xhr.status, data});
             };
-            xhr.send(it.file);
+            xhr.send(body);
         });
+    },
+
+    /** Sends one file; big files go in pieces so the proxy does not cut the long request. */
+    async sendOne(it) {
+        let res = {status: 0, data: null};
+        if (it.file.size <= chunkSize) {
+            res = await gameUpload.sendPiece(it, it.file, {}, 0);
+        } else {
+            for (let offset = 0; offset < it.file.size; offset += chunkSize) {
+                const piece = it.file.slice(offset, offset + chunkSize);
+                const extra = {offset, total: it.file.size};
+                for (let attempt = 0; attempt < 3; attempt++) {
+                    res = await gameUpload.sendPiece(it, piece, extra, offset);
+                    if (res.status === 200 || res.status === 409) break;
+                }
+                if (res.status !== 200) break;
+            }
+        }
+        if (res.status >= 200 && res.status < 300) {
+            it.status = 'done';
+            it.pct = 100;
+            it.msg = '';
+        } else if (res.status === 0) {
+            it.status = 'error';
+            it.msg = 'Sem conexão com o servidor.';
+        } else {
+            const err = res.data?.error || {};
+            it.status = err.code === 'exists' ? 'exists' : 'error';
+            it.msg = err.code === 'exists' ? 'Marque "Substituir arquivos existentes" para enviar de novo.' : (err.message || 'Falha no envio.');
+        }
     },
 
     async start() {
