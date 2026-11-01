@@ -249,6 +249,35 @@ var migrations = []string{
 		data       BLOB    NOT NULL,
 		updated_at INTEGER NOT NULL
 	);`,
+	// 6: Sabres rhythm game (songs shared by all accounts, runs for rankings and history)
+	`CREATE TABLE sabres_songs (
+		id          INTEGER PRIMARY KEY AUTOINCREMENT,
+		title       TEXT    NOT NULL,
+		artist      TEXT    NOT NULL DEFAULT '',
+		duration_ms INTEGER NOT NULL DEFAULT 0,
+		bpm         INTEGER NOT NULL DEFAULT 0,
+		file        TEXT    NOT NULL,
+		size        INTEGER NOT NULL DEFAULT 0,
+		mime        TEXT    NOT NULL DEFAULT '',
+		chart       TEXT    NOT NULL DEFAULT '',
+		uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+		created_at  INTEGER NOT NULL
+	);
+	CREATE TABLE sabres_scores (
+		id         INTEGER PRIMARY KEY AUTOINCREMENT,
+		song_id    INTEGER NOT NULL REFERENCES sabres_songs(id) ON DELETE CASCADE,
+		user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		difficulty TEXT    NOT NULL,
+		score      INTEGER NOT NULL,
+		accuracy   INTEGER NOT NULL DEFAULT 0,
+		max_combo  INTEGER NOT NULL DEFAULT 0,
+		grade      TEXT    NOT NULL DEFAULT '',
+		hits       INTEGER NOT NULL DEFAULT 0,
+		misses     INTEGER NOT NULL DEFAULT 0,
+		played_at  INTEGER NOT NULL
+	);
+	CREATE INDEX sabres_scores_song ON sabres_scores(song_id, score);
+	CREATE INDEX sabres_scores_user ON sabres_scores(user_id, played_at);`,
 }
 
 func (s *Store) migrate(ctx context.Context) error {

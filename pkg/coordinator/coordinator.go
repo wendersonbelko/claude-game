@@ -57,6 +57,7 @@ func New(conf config.CoordinatorConfig, log *logger.Logger) (*Coordinator, error
 	coordinator := &Coordinator{hub: NewHub(conf, authSvc, log), store: st, cancel: cancel}
 	api := &API{auth: authSvc, hub: coordinator.hub, secure: conf.Coordinator.Auth.SecureCookie || conf.Coordinator.Server.Https, log: log}
 	api.store = st
+	api.sabres = newSabresOptions(conf.Coordinator.Sabres)
 	if tc := conf.Coordinator.Tournaments; tc.Enabled {
 		api.tm = tournament.NewManager(st, tournament.Config{
 			MaxConcurrent: tc.MaxConcurrent,

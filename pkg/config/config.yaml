@@ -67,6 +67,11 @@ coordinator:
         enabled: true
         # size limit of a single file, in MB
         maxUploadMB: 1024
+    # Sabres (rhythm game): songs uploaded by the players, shared by all accounts
+    sabres:
+        enabled: true
+        dir: ./data/sabres
+        maxUploadMB: 40
     # game cover art: downloaded once from the free libretro-thumbnails
     # service (https://thumbnails.libretro.com) and stored on the server
     covers:

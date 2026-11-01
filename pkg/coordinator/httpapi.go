@@ -30,6 +30,7 @@ type API struct {
 	store  *store.Store
 	tm     *tournament.Manager
 	covers *covers.Service
+	sabres *SabresOptions
 	meta   *meta.Service
 	hub    *Hub
 	secure bool
@@ -90,6 +91,7 @@ func (a *API) Routes(mux *httpx.Mux) {
 	a.tournamentRoutes(mux)
 	a.uploadRoutes(mux)
 	a.gameUploadRoutes(mux)
+	a.sabresRoutes(mux)
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, &auth.Error{Status: 404, Code: "not_found", Message: "Recurso não encontrado."})

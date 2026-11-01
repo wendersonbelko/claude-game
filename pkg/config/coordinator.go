@@ -16,6 +16,7 @@ type Coordinator struct {
 	Auth        Auth
 	Covers      Covers
 	Games       Games
+	Sabres      Sabres
 	Meta        Meta
 	Tournaments Tournaments
 	Debug       bool
@@ -116,4 +117,14 @@ func (c *CoordinatorConfig) ParseFlags() {
 	flag.IntVar(&c.Coordinator.Monitoring.Port, "monitoring.port", c.Coordinator.Monitoring.Port, "Monitoring server port")
 	flag.StringVar(&coordinatorConfigPath, "c-conf", coordinatorConfigPath, "Set custom configuration file path")
 	flag.Parse()
+}
+
+// Sabres configures the rhythm game: songs uploaded by the players are kept in Dir
+// and are available to every account.
+type Sabres struct {
+	Enabled bool
+	// Dir is where the audio files are stored.
+	Dir string
+	// MaxUploadMB is the size limit of one song.
+	MaxUploadMB int
 }
